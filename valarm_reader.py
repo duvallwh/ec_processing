@@ -3,28 +3,32 @@ format"""
 import zipfile
 import os
 import pandas as pd
+from data_loader_functions import *
 
 class ValarmReader(object):
     def __init__(self, file_path):
         self.file_path = file_path
-
-        ## NEEDS TO BE UPDATED #################################################
-
+        
         self.unit1_map = {'AMB_TEMP_C': 'temp', 'REL_HUMID': 'rh',
                           'BAR_PRESS': 'bp', 'USER_1': 'piv_v',
                           'TEMP_1': 'sensor_temp', 'VOLT_1': 'ox_we',
-                          'VOLT_2': 'ox_ae', 'VOLT_3': 'no2_we',
-                          'VOLT_4': 'no2_ae', 'VOLT_5': 'no_we',
-                          'VOLT_6': 'no_ae', 'VOLT_7': 'sensor_input_voltage',
-                          'VOLT_8': 'system_voltage'} 
+                          'VOLT_2': 'ox_ae', 'VOLT_3': 'no_we',
+                          'VOLT_4': 'no_ae', 'VOLT_5': 'no2_we',
+                          'VOLT_6': 'no2_ae', 'VOLT_7': 'sensor_input_voltage',
+                          'VOLT_8': 'system_voltage', 'TIME':'date'} 
 
         self.unit2_map = {'AMB_TEMP_C': 'temp', 'REL_HUMID': 'rh',
-                          'BAR_PRESS': 'bp', 'USER_1': 'piv_v',
-                          'TEMP_1': 'sensor_temp', 'VOLT_1': 'ox_we',
-                          'VOLT_2': 'ox_ae', 'VOLT_3': 'no2_we',
-                          'VOLT_4': 'no2_ae', 'VOLT_5': 'no_we',
-                          'VOLT_6': 'no_ae', 'VOLT_7': 'sensor_input_voltage',
-                          'VOLT_8': 'system_voltage'}
+                          'BAR_PRESS': 'bp', 'VOLT_1': 'no_we',
+                          'VOLT_2': 'no_ae', 'VOLT_3': 'no2_we',
+                          'VOLT_4': 'no2_ae', 'VOLT_5': 'ox_we',
+                          'VOLT_6': 'ox_ae', 'TEMP_1': 'sensor_temp',
+                          'TIME':'date'}
+
+        self.valarm_parameter_units_map = {'temp':'deg_C', 'rh':'percent', 'bp':'m_bars',
+                                      'piv_v':'V', 'sensor_temp':'deg_C', 'ox_we':'V',
+                                      'ox_ae':'V', 'no_we':'V', 'no_ae':'V', 'no2_we':'V',
+                                      'no2_ae':'V', 'sensor_input_voltage':'deg_C',
+                                      'system_voltage':'deg_C'}
 
     def _determine_sensor(self):
         """
@@ -60,12 +64,17 @@ class ValarmReader(object):
             unit_map = self.unit2_map
         else:
             return 'Could not load data'
+
         dat = self._open_file()
-        dat.index = dat['TIME']
-        dat.index = dat.index.tz_localize('UTC').tz_convert('US/Pacific')
-        dat = dat.rename(columns=unit_map)
+        
+        dat.rename(columns=unit_map, inplace = True)
+        
         dat = dat[list(unit_map.values())]
-        dat['site'] = site
+        dat = format_dates(dat, hour_offset=7)
+        dat = sql_loader_shape(dat, site=site, averagingperiod='spot',
+                               units_map=self.valarm_parameter_units_map)
+        dat = organize_df(dat)
+        
         return dat        
 
 ###### to be moved ######
@@ -77,15 +86,13 @@ import unittest
 class ValarmReaderTest(unittest.TestCase):
 
     def setUp(self):
-        print("Creating a new valarm file parser...")
-        test_file_folder = "C:/Users/duvallwh/Downloads"
-        test_file = "valarm-data_AQM_SanAntonio_02_2018-06-30_17.00.00"\
-                    "-to-2018-07-26_16.59.01.zip"
+        test_file_folder = "C:/Users/William/Downloads"
+        test_file = "valarm-data_AQM_SanAntonio_02_2018-07-21_"\
+                    "17.00.00-to-2018-07-29_16.59.01.zip"
         test_file_path = os.path.join(test_file_folder, test_file)
-        self.vfp = val_obj = ValarmReader(test_file_path)
+        self.vfp = ValarmReader(test_file_path)
 
     def tearDown(self):
-        print("Destroying the valarm file parser...")
         self.vfp = None           
 
     def test_determine_sensor(self):
@@ -96,6 +103,16 @@ class ValarmReaderTest(unittest.TestCase):
 
     def test_load_data(self):
         self.assertTrue(type(self.vfp.load_data()) == pd.core.frame.DataFrame)
+
+    def test_date_min(self):
+        val_obj = self.vfp.load_data()
+        date_min = val_obj['date'].min()
+        self.assertEqual(pd.Timestamp('2018-07-22 00:01:11'), date_min)
+
+    def test_time_delta(self):
+        val_obj = self.vfp.load_data()
+        time_delta_min = val_obj['time_delta'].min()
+        self.assertEqual(time_delta_min, 17452871.0)
 
 if __name__=="__main__":
     unittest.main()
