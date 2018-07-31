@@ -9,8 +9,8 @@ import numpy as np
 ORIGIN = pd.datetime(2018,1,1)
 
 def time_delta(time_stamp):
-    return (time_stamp - ORIGIN
-            )/np.timedelta64(1,'s')
+    return (time_stamp - ORIGIN)/pd.Timedelta(1, 's')
+            
 
 def format_dates(df, hour_offset=None, date_col=None):
     """Removes offset if necessary from df 'date' column"""
@@ -50,10 +50,27 @@ import unittest
 
 class data_loader_functionsTest(unittest.TestCase):
 
-    def test_from_seconds(self):
+    def test_from_seconds_zero(self):
         test_date = pd.datetime(2018, 1, 1)
         x = from_seconds(0)
         self.assertEqual(test_date, x)
+
+    def test_from_seconds(self):
+        test_date = pd.datetime(2018, 1, 2)
+        x = from_seconds(60*60*24)
+        self.assertEqual(test_date, x)
+
+    def test_to_seconds(self):
+        test_date = pd.datetime(2018, 1, 2)
+        x = time_delta(time_stamp=test_date)
+        self.assertEqual(x, 60*60*24)
+
+    def test_to_seconds_zero(self):
+        test_date = pd.datetime(2018, 1, 1)
+        x = time_delta(time_stamp=test_date)
+        self.assertEqual(x, 0)
+
+
 
 if __name__=="__main__":
     unittest.main()
