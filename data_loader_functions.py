@@ -6,8 +6,10 @@ sqlite3 data base. The aim of these functions is to
 import pandas as pd
 import numpy as np
 
+ORIGIN = pd.datetime(2018,1,1)
+
 def time_delta(time_stamp):
-    return (time_stamp - pd.datetime(2018,1,1)
+    return (time_stamp - ORIGIN
             )/np.timedelta64(1,'s')
 
 def format_dates(df, hour_offset=None, date_col=None):
@@ -38,5 +40,20 @@ def sql_loader_shape(df, site, averagingperiod, units_map):
 
 def organize_df(df):
     """Puts df columns in correct order to be loaded into sqlite3 db."""
-    return df[['date', 'time_delta', 'site', 'parameter',
-                 'units', 'averagingperiod', 'reading']]    
+    return df[['time_delta', 'site', 'parameter',
+                 'units', 'averagingperiod', 'reading']]
+
+def from_seconds(seconds):
+    return ORIGIN + pd.to_timedelta(seconds, unit='s')
+
+import unittest
+
+class data_loader_functionsTest(unittest.TestCase):
+
+    def test_from_seconds(self):
+        test_date = pd.datetime(2018, 1, 1)
+        x = from_seconds(0)
+        self.assertEqual(test_date, x)
+
+if __name__=="__main__":
+    unittest.main()
